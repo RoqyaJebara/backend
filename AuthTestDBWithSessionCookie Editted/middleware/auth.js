@@ -1,0 +1,57 @@
+import jwt from 'jsonwebtoken';
+import UserModel from '../models/userModel.js';
+
+export const authenticate = async (req, res, next) => {
+  try {
+      //check out session first 
+      
+      if(req.session.authenticate && req.session.userId){
+            const user = await UserModel.findById(req.session.userId);
+            if(user){
+              req.user = user;
+              return next();
+            }
+      }
+
+
+    // const authHeader = req.headers['authorization'];
+    // const token = authHeader?.split(' ')[1];
+    //change from where to cookie 
+    const token = req.cookie.token;
+
+    
+    if (!token) {
+      throw new Error('Authentication token missing');
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if(decoded){    const user = await UserModel.findById(decoded.id);
+}
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+ //renew   
+req.session.userId = user.id;
+req.session.authenticate=true;
+
+    req.user = user;
+    //renew session 
+
+    next();
+  } catch (error) {
+    error.statusCode = 401;
+    next(error);
+  }
+};
+
+export const authorize = (roles = []) => {
+  return (req, res, next) => {
+    if (roles.length && !roles.includes(req.user.role)) {
+      const error = new Error('Unauthorized access');
+      error.statusCode = 403;
+      return next(error);
+    }
+    next();
+  };
+};
